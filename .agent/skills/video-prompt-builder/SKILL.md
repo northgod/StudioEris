@@ -1,173 +1,86 @@
 ---
 name: video-prompt-builder
-description: Build production-ready video generation prompts from storyboard worksheet images, character sheets, background references, and Japanese or English stage directions. Use when asked to create Seedance2.0 or other video AI prompts from 絵コンテ, storyboard sheets, text storyboards, ト書き, camera notes, acting notes, dialogue, or reference images in the ScarletEchoes workflow.
-metadata:
-  short-description: Storyboard-to-video prompt builder
+description: Build production-ready video generation prompts from Japanese or English stage directions, scene blocking, dialogue, camera notes, and selected visual references such as character sheets, background art, storyboard sheets, concept art, or prior frames. Use when Codex needs to combine user-provided ト書き, camera/action text, and canvas-selected images into a structured prompt for video generation AI, including anime cuts, scene shots, image-to-video requests, and reference-aware motion prompts.
 ---
 
 # Video Prompt Builder
 
-Use this skill to create video generation prompts that follow the project's video prompt rules.
+## Purpose
 
-For ScarletEchoes, always read the current project rule first:
+Use this skill to transform ト書き, scene notes, cut notes, camera instructions, and selected visual references into a single video generation prompt.
 
-- `common/動画生成ルール.md`
+This is a ScarletEchoes project-local skill. Resolve project files relative to `{PROJECT_ROOT}`, the repository root that contains `README.md`, `common/`, `stories/`, and `.agent/`.
 
-If the user also provides storyboard-generation context, consult:
+The prompt should be ready to paste into Seedance2.0 or another video generation tool. For ScarletEchoes work, follow `{PROJECT_ROOT}/common/動画生成ルール.md` as the authoritative prompt format.
 
-- `common/絵コンテルール.md`
+Project path rules:
 
-The repository rule files are authoritative. If they conflict with this skill, follow the rule files.
+- Use project-root-relative paths for rule files, such as `common/動画生成ルール.md`.
+- Text storyboard asset paths are relative to `{ANIME_ROOT}` (`stories/[Story_Title]/02_Anime`), not relative to the Markdown file location.
+- Resolve text storyboard asset paths to `{PROJECT_ROOT}/{ANIME_ROOT}/<path>` before treating them as image references.
+- The final video-generation prompt must identify reference images by filename only, for example `@Image: stage_sketch_auditorium_lecture_panic.png`, not by absolute path or `{ANIME_ROOT}`-relative path. Resolve full paths internally for existence checks, but strip directory names in the prompt.
 
-## Required Inputs
+## Inputs To Accept
 
-Ask only for missing inputs that cannot be inferred from the request.
+Accept any combination of:
 
-- `storyboard_image`: path to the filled storyboard worksheet image for the scene.
-- `characters`: character sheet image paths for all appearing characters.
-- `backgrounds`: background or stage image paths when available.
-- `stage_directions`: text storyboard, script excerpt, ト書き, dialogue, acting notes, camera notes, or pasted scene description.
+- `stage_directions`: ト書き, scenario text, cut description, dialogue, acting notes, camera notes, SE, duration.
+- `character_references`: selected character sheets or images from the canvas.
+- `background_references`: selected location, prop, stage, or environment images.
+- `stage_sketch_references`: stage sketches named in the text storyboard, used for spatial continuity.
+- `storyboard_references`: selected storyboard worksheet sheets, cut panels, keyframes, or previous generated frames.
+- `output_preferences`: target model, duration, aspect ratio, language, prompt style, negative prompt needs.
 
-Optional:
-
-- target video model, default `Seedance2.0`
-- output language, default English prompt with Japanese names/dialogue preserved when provided
-- work title, episode number, scene number, scene duration
-- whether speech/lip-sync is supported by the target model
-- output file path for the prompt
-
-Default assumptions:
-
-- Image A is the storyboard worksheet.
-- Image B and following are character and background references in the order listed in the prompt.
-- The storyboard image defines staging, cut order, framing, and visual progression.
-- Character sheets define identity and appearance more strongly than the storyboard drawing.
-- Background references define the environment when they are available.
-- Dialogue is used for acting and speaker assignment; it must not appear as subtitles or captions unless the user explicitly asks.
+If the user says the images are selected on the canvas, treat those selected images as active references. Do not ask for file paths unless the images are unavailable in the current context.
 
 ## Workflow
 
-1. Read `common/動画生成ルール.md`.
-2. Inspect the provided file paths and identify reference order:
-   - Image A: storyboard worksheet.
-   - Image B and following: character sheets.
-   - Remaining images: background or stage references.
-3. Read the user's stage directions and extract:
-   - appearing characters
-   - dialogue and speaker assignment
-   - acting beats
-   - camera instructions
-   - cut numbers or timing if present
-   - mood, lighting, pacing, and scene objective
-4. Map every acting beat and camera instruction to the closest storyboard cut number.
-   - Preserve the cut order from the storyboard.
-   - If text directions have no cut numbers, distribute them across the visible or implied cut sequence.
-   - Do not invent unrelated cuts.
-5. Build a prompt using the structure in `common/動画生成ルール.md`.
-6. Make `[CHARACTERS]`, `[BACKGROUND]`, and `[CUT PLAN]` scene-specific.
-7. Keep visual constraints explicit:
-   - do not render the storyboard worksheet itself
-   - do not show worksheet borders, boxes, labels, notes, arrows, or text
-   - do not add BGM
-   - do not add subtitle super
-   - do not display captions, subtitles, or lyrics
-8. Verify that the final prompt includes:
-   - reference image order
-   - character cast
-   - character appearance reference mapping
-   - background reference mapping when available
-   - cut-by-cut acting, camera, emotion, and motion instructions
-   - dialogue handling policy
-   - adaptation policy from the rule file
+1. Identify the target unit: scene, cut, shot, or short sequence.
+2. Extract from the stage directions:
+   - duration and aspect ratio if present
+   - location and time of day
+   - characters present
+   - action beats in chronological order
+   - camera size, angle, lens feel, and movement
+   - acting, expression, emotion, and relationship changes
+   - lighting, atmosphere, color, and VFX
+   - dialogue from the corresponding `CUT PLAN` item only as performance context unless the user wants lip-sync text
+3. Inspect selected references and summarize only production-relevant details:
+   - character design: hair, eyes, outfit, accessories, body scale, silhouette
+   - background: architecture, layout, props, lighting, weather, time of day
+   - storyboard/keyframe: composition, blocking, camera direction, motion arrows
+4. When using v2 storyboard materials, keep scene visual and worksheet roles separate:
+   - `scene_visual`: stage, initial blocking, spatial continuity, character placement.
+   - `storyboard_sheet`: shot-by-shot progression, camera, performance, timing.
+   - `character_reference`: character appearance and identity.
+5. When building from a text storyboard, read the scene's `舞台スケッチ:` value and include that image as `Image A`. Include the corresponding storyboard worksheet PNG as `Image B` when available. Resolve character and background references through the reference maps, but write only filenames in the final prompt.
+6. Build the prompt using the section order from `{PROJECT_ROOT}/common/動画生成ルール.md`.
+7. Add constraints inside `ADAPTATION POLICY` and, when useful, an `Avoid:` line under the relevant section.
+8. If information conflicts, prioritize in this order:
+   1. explicit user instruction in the current request
+   2. selected storyboard/keyframe for composition and blocking
+   3. selected character sheet for character design
+   4. selected background for stage design
+   5. text stage directions for acting and timing
 
-## Prompt Requirements
+## Output Format
 
-The final prompt must:
-
-- follow `common/動画生成ルール.md`
-- identify the storyboard image as the source of staging and shot design
-- identify character sheets as the priority source for face, hair, outfit, accessories, and proportions
-- identify background images as the priority source for environment details
-- convert the worksheet into an actual cinematic scene
-- start from the initial blocking shown in the storyboard main visual
-- follow storyboard cuts in numerical order
-- preserve acting, emotion, pacing, and camera intent from the stage directions
-- keep characters visually consistent through the whole scene
-- avoid on-screen text unless explicitly requested
-
-## Stage Direction Parsing
-
-Support Japanese and English labels such as:
+Default to the Seedance2.0 prompt template from `{PROJECT_ROOT}/common/動画生成ルール.md`. Keep section labels in English and use concise production English camera terms.
 
 ```markdown
-- 時間:
-- 内容:
-- セリフ:
-- カメラ:
-- 画面:
-- 演出:
-- SE:
-- 備考:
-- Dialogue:
-- Camera:
-- Action:
-- Direction:
-```
-
-Dialogue handling:
-
-- Include dialogue only as spoken dialogue when the target model supports speech or lip-sync.
-- If the target model does not support speech, use dialogue only as facial expression, timing, and emotional cues.
-- Never turn dialogue into subtitles, captions, speech balloons, or on-screen text by default.
-
-SE and music handling:
-
-- Include SE only when the target model supports sound effects or when it affects visual acting.
-- Do not add BGM unless the user explicitly asks and the project rule allows it.
-
-## Cut Plan Format
-
-Use one block per storyboard cut.
-
-```text
-CUT 1
-- Source: storyboard cut 1.
-- Camera:
-- Acting / motion:
-- Character focus:
-- Dialogue / lip-sync:
-- Environment / lighting:
-- Transition / pacing:
-```
-
-Keep camera language compact and production-oriented, for example:
-
-- `WIDE / STATIC`
-- `MEDIUM / TRACKING`
-- `CLOSE / DOLLY IN`
-- `POV / PAN`
-- `LOW ANGLE`
-- `OVER THE SHOULDER`
-- `HANDHELD`
-
-## Prompt Skeleton
-
-Adapt this skeleton per scene while preserving the rule-file intent.
-
-```text
-Generate a video scene from the provided reference images for Seedance2.0.
-
+Generate a video scene from the provided
 REFERENCE IMAGES
-- Image A: [storyboard_image] - storyboard worksheet for this scene.
-- Image B: [character_name] character sheet - [path].
-- Image C: [character_name] character sheet - [path].
-- Image D: [location_name] background reference - [path].
+- Image A: scene visual / stage sketch reference for this scene (@Image: <stage_sketch_filename.png>)
+- Image B: storyboard worksheet for this scene (@Image: <storyboard_sheet_filename.png>)
+- Image C and following: character reference images (@Image: <character_sheet_filename.png>)
+- Next images after character references: background references (@Image: <background_filename.png>)
+- Additional images: prior frames or keyframes if provided (@Image: <filename.png>)
 
 Interpret the references as follows:
-- The large upper scene visual in Image A shows the initial state before the acting begins.
-- It defines starting blocking, character positions, environment, and overall composition.
-- The lower cut list defines the shot-by-shot progression in time order.
-- Each cut image shows intended framing, visual action, and progression.
+- Image A defines stage structure, character placement, spatial continuity, initial blocking, mob density, entrances, exits, furniture, key props, movement paths, and overall environment layout.
+- Image B defines shot-by-shot progression, camera, action, performance, and timing.
+- Read the storyboard worksheet strictly from left to right.
+- Each cut image shows the intended framing, visual action, and progression of the scene.
 
 Character reference images are the priority source for:
 - character identity
@@ -183,22 +96,22 @@ Important:
 - Do not render the storyboard worksheet itself.
 - Do not show the page, borders, boxes, labels, notes, arrows, or text from the worksheet.
 - Convert the storyboard into an actual cinematic scene.
-- Start from the initial state shown in the main scene visual.
+- Use Image A to understand spatial continuity and starting blocking.
+- Use Image B to understand cut order, camera, performance, and timing.
 - Follow the cuts in numerical order.
 - Use the storyboard for staging and shot design.
-- Use character references for appearance fidelity.
-- Use background references for environment fidelity.
+- Use the character references for appearance fidelity.
 - Keep all characters visually consistent throughout the scene.
-- Dialogue information below is for acting and speaker assignment.
+- Dialogue written inside each CUT PLAN item is for acting, speaker assignment, mouth movement, and lip-sync timing.
 - Do not add BGM.
 - Do not add subtitle super.
 - Do not display captions or subtitles on screen.
 
 If the model supports speech or lip-sync:
-- use the dialogue lines as spoken dialogue by the specified speaker.
+- use the dialogue lines written inside each CUT PLAN item as spoken dialogue by the specified speaker.
 
 If the model does not support speech generation:
-- use the dialogue lines only as acting cues and emotional cues.
+- use the dialogue lines inside each CUT PLAN item only as acting cues and emotional cues.
 - do not show the dialogue as on-screen text.
 
 [STYLE]
@@ -213,56 +126,164 @@ stable cinematic camera
 ...
 
 [CHARACTER CAST]
-...
+List all characters appearing in this scene.
 
 [CHARACTERS]
-...
+- Character name(@Image: character_sheet_filename.png): appearance locks and role.
 
 [BACKGROUND]
-...
+- Background(@Image: background_filename.png): stage layout, lighting, props.
+
+[SCENE VISUAL REFERENCE]
+- Stage sketch(@Image: stage_sketch_filename.png)
+- Starting positions:
+- Stage structure:
+- Mob density and basic appearance:
+- Entrances/exits/furniture/key props:
+- Movement paths:
 
 [CUT PLAN]
 Follow the storyboard faithfully and interpret each cut in order.
-
-CUT 1
-- Source:
-- Camera:
-- Acting / motion:
-- Character focus:
-- Dialogue / lip-sync:
-- Environment / lighting:
-- Transition / pacing:
-
-CUT 2
-...
+Do not divide the duration evenly by default.
+Assign each cut duration based on dialogue length, acting beats, reaction time, held tension, quick insert shots, and the narrative purpose of the cut.
+Write dialogue inside the corresponding cut only.
+Do not create a separate dialogue section.
+CUT 1: ...
+CUT 2: ...
 
 ADAPTATION POLICY
 - Faithfully reconstruct the storyboard.
 - Faithfully preserve character appearance from the character references.
-- Start from the initial blocking in the storyboard main visual.
+- Use Image A as the scene visual reference for spatial layout, starting positions, crowd density, and movement paths.
+- Use Image B as the storyboard worksheet for cut order, camera, action, performance, and timing.
 - Follow the cuts in order.
 - Preserve the intended acting, emotion, and pacing.
-- Dialogue is assigned by the speaker field above.
+- Dialogue is assigned inside the corresponding CUT PLAN item.
 - Do not add BGM.
 - Do not add subtitle super.
 - Do not add on-screen captions or lyrics.
 - If interpolation between cuts is needed, make it smooth and natural while preserving storyboard intent.
 ```
 
-## Saving Outputs
+When the user asks for a shorter output, keep the same section names but make each section compact. Do not switch to a different prompt format for ScarletEchoes.
 
-If the user asks for a file, save the prompt as Markdown or plain text in the requested output path. Use a scene-specific filename when no filename is provided, for example:
+## Prompt Construction Rules
 
-- `scene_01_video_prompt.md`
-- `02_01_seedance_prompt.md`
+### Main Prompt
 
-## Final Response
+Write a structured prompt using the sections above. Include these elements when known:
 
-Report:
+- duration: `15 seconds`, `8 seconds`, etc.
+- aspect ratio: `16:9`, `9:16`, `1:1`, etc.
+- style: `Japanese TV anime`, `rough storyboard to final anime`, `cinematic anime`, etc.
+- subject and setting
+- chronological action beats
+- camera and composition
+- lighting and mood
+- required continuity from references
 
-- whether the prompt was written to a file or returned inline
-- source storyboard image
-- character and background references used
-- any missing inputs or assumptions
+### Character Consistency
 
-Keep the final answer concise.
+When character sheets are provided, state visible identity locks explicitly:
+
+```text
+Preserve the character sheet exactly: hairstyle, hair color, eye color, outfit, accessories, body proportions, silhouette, and facial style.
+Do not change costume, age, hairstyle, eye color, or accessories between frames.
+```
+
+For ScarletEchoes Alvina, if `alvina_sheet.png` is selected or named, lock:
+
+```text
+Alvina: white bob hair with red inner hair accents, red flower hair ornament, red eyes, white blouse, large red ribbon, white dress/tunic, black long cloak with red lining, black tights, black loafers.
+Avoid brown cloak, blue eyes, gold hair ornament, boots, or outfit simplification.
+```
+
+### Background Consistency
+
+When background art is selected, describe the stage layout, not just the mood:
+
+- foreground, middle ground, background
+- entrances/exits
+- character starting positions
+- important props
+- time of day and lighting
+- camera-facing direction
+
+### Storyboard / Keyframe Consistency
+
+When storyboard worksheet or cut panels are selected, assign the scene visual as `Image A` and the worksheet as `Image B`. Use them primarily for:
+
+- framing
+- camera angle
+- blocking
+- movement direction
+- shot order
+- emotional beat
+
+Do not render the worksheet itself. Never show the page, borders, boxes, labels, notes, arrows, or worksheet text in the video. Convert the worksheet into an actual cinematic scene.
+
+### Reference Filename Policy
+
+For ScarletEchoes prompts, list every visual reference with filename only:
+
+- stage sketch from `舞台スケッチ:`: `@Image: stage_sketch_....png`
+- storyboard worksheet: `@Image: 06-08_scene_007_storyboard.png`
+- character sheet: `@Image: alvina_sheet.png`
+- background image: `@Image: 講堂_2.png`
+
+Do not write absolute paths such as `D:/...` or `{ANIME_ROOT}`-relative paths such as `storyboards/03_1/...` in the final video prompt. Path resolution is an internal validation step only.
+
+### Dialogue Handling
+
+Use dialogue as acting context by default. Follow the rule from `{PROJECT_ROOT}/common/動画生成ルール.md`:
+
+- If the model supports speech or lip-sync, use dialogue lines inside each `CUT PLAN` item as spoken dialogue by the specified speaker.
+- If the model does not support speech generation, use dialogue inside each `CUT PLAN` item only as acting and emotional cues.
+- Do not show dialogue as on-screen text.
+
+Translate dialogue into facial expression, mouth movement, reaction timing, gaze, and body language as needed.
+
+### Camera Terms
+
+Use compact, model-friendly terms:
+
+- `WIDE / STATIC`
+- `MEDIUM / TRACKING`
+- `CLOSE / DOLLY IN`
+- `POV / PAN`
+- `LOW ANGLE`
+- `HIGH ANGLE`
+- `OVER THE SHOULDER`
+- `HANDHELD`
+- `TILT UP`
+- `SLOW PUSH IN`
+
+Then explain the movement in plain language.
+
+## Constraint Patterns
+
+Put avoid constraints in the `Important` block or `ADAPTATION POLICY` rather than changing the template. Include these when character references are important:
+
+```text
+Avoid changing character design, changing outfit, changing hairstyle, changing eye color, extra characters, duplicated limbs, distorted hands, unreadable face, flickering costume details, unstable background layout, camera jitter, excessive blur, text overlays, subtitles, speech balloons, watermarks.
+```
+
+For storyboard-to-video:
+
+```text
+Avoid ignoring storyboard composition, changing camera angle, reversing movement direction, adding unrelated actions, cutting away too early.
+```
+
+## Quality Checklist
+
+Before finalizing, verify the prompt answers:
+
+- Who is on screen?
+- Where are they in the stage layout?
+- What changes over time?
+- What does the camera do?
+- What must match the selected references?
+- What must be avoided?
+- Is the action feasible within the requested duration?
+
+If a required reference is missing from context, state the gap and build the best prompt from available inputs.

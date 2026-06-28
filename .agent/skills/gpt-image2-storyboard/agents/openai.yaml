@@ -1,4 +1,0 @@
-display_name: GPT Image2 Storyboard
-short_description: 絵コンテルールに沿ってGPT Image2用の絵コンテシートを生成します。
-default_prompt: |
-  キャラクターシート、背景画像、Markdown形式のテキストコンテをもとに、絵コンテルール.mdに従ってGPT Image2で絵コンテ画像を作成してください。

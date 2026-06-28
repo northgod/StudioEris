@@ -26,6 +26,9 @@
     │   └── 03_Music/        # ３．作曲
     │       ├── concepts/    # 楽曲のコンセプト
     │       └── prompts/     # 生成プロンプト
+    │   └── 04_Game/         # ４．ゲーム制作
+    │       └── [Game_Title] # ゲームタイトルごとのフォルダ
+    |           └── ...    
     └── [Another_Story]/     # 次の物語フォルダ
         └── ...
 ```
@@ -51,7 +54,30 @@
 - **`concepts/`**: 物語のテーマソングやBGMなど、制作する楽曲のコンセプト、曲調、モチーフなどをまとめたテキストを格納します。
 - **`prompts/`**: SunoやUdioなどの音楽生成AIに入力するための生成プロンプト（歌詞、ジャンル設定などを含む）を管理します。
 
+#### `04_Game/` (４．ゲーム)
+ゲーム制作領域
 
+## Codex 独自スキル
+
+本プロジェクトのアニメ制作ワークフローで使う独自スキルの使い方を確認したい場合は、Codex のチャットで `storyboard-skill-guide` を呼び出します。
+
+呼び出し例:
+
+```text
+Use $storyboard-skill-guide to explain how to use text-storyboard, gpt-image2-storyboard, and video-prompt-builder.
+```
+
+日本語で聞く場合:
+
+```text
+$storyboard-skill-guide を使って、text-storyboard / gpt-image2-storyboard / video-prompt-builder の使い分けと呼び出し例を教えてください。
+```
+
+このガイドスキルは、以下の用途をチャット上で説明します。
+
+- `text-storyboard`: 小説本文、脚本、シーンメモからテキストコンテを作る。
+- `gpt-image2-storyboard`: テキストコンテと参照素材からシーンビジュアル、絵コンテワークシートを作る。
+- `video-prompt-builder`: シーンビジュアル、絵コンテワークシート、キャラクター参照から動画生成AI向けプロンプトを作る。
 
 ## 生成ワークフロー
 

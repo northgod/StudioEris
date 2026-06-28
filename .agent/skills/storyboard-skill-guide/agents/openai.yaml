@@ -1,0 +1,4 @@
+interface:
+  display_name: "Storyboard Skill Guide"
+  short_description: "Guide ScarletEchoes storyboard skills"
+  default_prompt: "Use $storyboard-skill-guide to explain how to use text-storyboard, gpt-image2-storyboard, and video-prompt-builder."
